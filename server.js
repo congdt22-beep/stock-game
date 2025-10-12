@@ -1,9 +1,10 @@
 // server.js
+const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 
-// Tạo server HTTP
-const server = http.createServer();
+const app = express();
+const server = http.createServer(app);
 
 // Khởi tạo Socket.IO server
 const io = new Server(server, {
@@ -11,6 +12,11 @@ const io = new Server(server, {
     origin: "*", // Cho phép tất cả client kết nối (React app)
     methods: ["GET", "POST"],
   },
+});
+
+// ======= ROUTE KIỂM TRA =======
+app.get("/", (req, res) => {
+  res.send("✅ Stock Game WebSocket server is running!");
 });
 
 // ======= STATE CHÍNH =======
@@ -21,13 +27,10 @@ let gameStarted = false; // Trạng thái trò chơi (đã bắt đầu hay chư
 io.on("connection", (socket) => {
   console.log(`✅ Client connected: ${socket.id}`);
 
-  // Gửi dữ liệu khởi tạo cho client mới (danh sách & trạng thái)
   socket.emit("init", { players, gameStarted });
 
-  // Khi người chơi gửi tên để tham gia
   socket.on("join", (name) => {
     if (gameStarted) {
-      // Nếu game đã bắt đầu, không cho người mới vào
       socket.emit("joinError", "Trò chơi đã bắt đầu, vui lòng chờ ván sau!");
       return;
     }
@@ -39,7 +42,6 @@ io.on("connection", (socket) => {
     io.emit("playersUpdate", players);
   });
 
-  // Khi admin bấm nút bắt đầu trò chơi
   socket.on("startGame", () => {
     if (gameStarted) return;
     gameStarted = true;
@@ -47,14 +49,12 @@ io.on("connection", (socket) => {
     console.log("🎮 Game started!");
   });
 
-  // Khi người chơi rời khỏi server
   socket.on("disconnect", () => {
     players = players.filter((p) => p.id !== socket.id);
     io.emit("playersUpdate", players);
     console.log(`❌ Player ${socket.id} disconnected`);
   });
 
-  // Khi admin muốn reset lại game
   socket.on("resetGame", () => {
     players = [];
     gameStarted = false;
@@ -64,7 +64,7 @@ io.on("connection", (socket) => {
 });
 
 // ======= KHỞI ĐỘNG SERVER =======
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
   console.log(`🔥 WebSocket server running on port ${PORT}`);
 });

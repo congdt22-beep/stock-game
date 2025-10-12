@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { newsList } from "./data";
 
-const socket = io("http://localhost:4000");
+const socket = io("https://stock-game-server.onrender.com");
 
 const initialStocks = [
   { code: "AAA", name: "Công ty AAA", price: 100 },
@@ -49,7 +49,7 @@ function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [winner, setWinner] = useState(null);
 
-  const loginUrl = `http://localhost:3000/join`;
+  const loginUrl = `https://stock-game.vercel.app/join`;
 
   // ======= SOCKET =======
   useEffect(() => {
