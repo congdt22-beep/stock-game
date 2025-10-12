@@ -51,7 +51,7 @@ function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [winner, setWinner] = useState(null);
 
-  const loginUrl = `https://stock-game.vercel.app/join`;
+  const loginUrl = `https://stock-game-iota.vercel.app/join`;
 
   // ======= SOCKET =======
   useEffect(() => {
