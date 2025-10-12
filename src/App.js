@@ -13,7 +13,9 @@ import {
 } from "recharts";
 import { newsList } from "./data";
 
-const socket = io("https://stock-game-server.onrender.com");
+const socket = io(process.env.REACT_APP_SOCKET_URL || "http://localhost:4000", {
+  transports: ["websocket"],
+});
 
 const initialStocks = [
   { code: "AAA", name: "Công ty AAA", price: 100 },
