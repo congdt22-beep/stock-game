@@ -13,10 +13,15 @@ import {
 } from "recharts";
 import { newsList } from "./data";
 
-const socket = io(
-  process.env.REACT_APP_SOCKET_URL || "https://stock-game-server.onrender.com",
-  { transports: ["websocket"] }
-);
+console.log("🟢 App.js loaded");
+
+// Tạo socket với fallback rõ ràng
+const SOCKET_URL =
+  process.env.REACT_APP_SOCKET_URL || "https://stock-game-server.onrender.com";
+
+console.log("🌐 Using socket server:", SOCKET_URL);
+
+const socket = io(SOCKET_URL, { transports: ["websocket"] });
 
 const initialStocks = [
   { code: "AAA", name: "Công ty AAA", price: 100 },
@@ -26,6 +31,8 @@ const initialStocks = [
 ];
 
 function App() {
+  console.log("🟢 App component rendered");
+
   const [playerName, setPlayerName] = useState("");
   const [loggedIn, setLoggedIn] = useState(false);
   const [players, setPlayers] = useState([]);
@@ -57,13 +64,25 @@ function App() {
   // ======= SOCKET =======
   useEffect(() => {
     socket.on("connect", () => console.log("✅ Connected to server"));
+    socket.on("connect_error", (err) =>
+      console.error("❌ Socket connect error:", err.message)
+    );
+
     socket.on("init", (data) => {
+      console.log("📡 Received init data:", data);
       setPlayers(data.players || []);
       setGameStarted(data.gameStarted || false);
     });
-    socket.on("playersUpdate", (updated) => setPlayers(updated));
-    socket.on("gameStarted", () => setGameStarted(true));
+    socket.on("playersUpdate", (updated) => {
+      console.log("👥 Players updated:", updated);
+      setPlayers(updated);
+    });
+    socket.on("gameStarted", () => {
+      console.log("🚀 Game started!");
+      setGameStarted(true);
+    });
     socket.on("gameReset", () => {
+      console.log("🔁 Game reset!");
       setGameStarted(false);
       setPlayers([]);
       setLoggedIn(false);
@@ -71,24 +90,23 @@ function App() {
     socket.on("joinError", (msg) => alert(msg));
 
     return () => {
-      socket.off("connect");
-      socket.off("init");
-      socket.off("playersUpdate");
-      socket.off("gameStarted");
-      socket.off("gameReset");
-      socket.off("joinError");
+      socket.off();
     };
   }, []);
 
   // ======= JOIN =======
   const handleJoin = () => {
     if (!playerName.trim()) return alert("❌ Vui lòng nhập tên!");
+    console.log("🧍 Joining game as:", playerName);
     socket.emit("join", playerName);
     setLoggedIn(true);
     if (players.length === 0) setIsAdmin(true);
   };
 
-  const startGame = () => socket.emit("startGame");
+  const startGame = () => {
+    console.log("🎮 Admin started game");
+    socket.emit("startGame");
+  };
 
   // ======= LOGIC NGÀY MỚI =======
   const startNewDay = useCallback(() => {
@@ -109,7 +127,6 @@ function App() {
     if (gameStarted) {
       if (timer === 0) {
         if (day >= totalDays) {
-          // ======= KẾT THÚC TRÒ CHƠI =======
           const finalValue = Object.keys(portfolio).reduce(
             (sum, code) => {
               const stock = stocks.find((s) => s.code === code);
@@ -180,10 +197,10 @@ function App() {
     );
   };
 
-  // ======= CẬP NHẬT BẢNG XẾP HẠNG MỖI 5S =======
+  // ======= BẢNG XẾP HẠNG =======
   useEffect(() => {
     const interval = setInterval(() => {
-      setLeaderboard((prev) => {
+      setLeaderboard(() => {
         const newData = [...players].map((p) => {
           const isMe = p.name === playerName;
           const totalValue = isMe
@@ -191,7 +208,7 @@ function App() {
                 const stock = stocks.find((s) => s.code === code);
                 return sum + (stock ? stock.price * portfolio[code] : 0);
               }, balance)
-            : p.balance || 10000; // nếu chưa có dữ liệu từ server thì giả định mặc định
+            : p.balance || 10000;
           return { name: p.name, total: totalValue };
         });
         newData.sort((a, b) => b.total - a.total);
@@ -216,7 +233,10 @@ function App() {
             onChange={(e) => setPlayerName(e.target.value)}
             style={{ padding: 8, fontSize: 16 }}
           />
-          <button onClick={handleJoin} style={{ marginLeft: 10, padding: "8px 16px" }}>
+          <button
+            onClick={handleJoin}
+            style={{ marginLeft: 10, padding: "8px 16px" }}
+          >
             Tham gia
           </button>
         </div>
@@ -231,8 +251,8 @@ function App() {
         <h3>Xin chào, {playerName}</h3>
         <h4>👥 Người chơi hiện tại:</h4>
         <ul style={{ listStyle: "none", padding: 0 }}>
-          {players.map((p) => (
-            <li key={p.id}>✅ {p.name}</li>
+          {players.map((p, i) => (
+            <li key={i}>✅ {p.name}</li>
           ))}
         </ul>
         {isAdmin && (
@@ -260,14 +280,12 @@ function App() {
       <h2>👤 Người chơi: {playerName}</h2>
       <h3>💰 Số dư: ${balance.toFixed(2)}</h3>
       <h3>⏳ Thời gian còn lại: {timer}s</h3>
-
       {news && (
         <div style={{ marginBottom: 20 }}>
           <strong>Tin tức hôm nay:</strong> {news.headline}
         </div>
       )}
-
-      {/* ======= BẢNG XẾP HẠNG ======= */}
+      {/* Bảng xếp hạng */}
       <div style={{ marginBottom: 20, background: "#f9f9f9", padding: 10, borderRadius: 8 }}>
         <h3>🏆 Top 5 người chơi dẫn đầu</h3>
         <ol>
@@ -278,68 +296,6 @@ function App() {
           ))}
         </ol>
       </div>
-
-      {winner && (
-        <div style={{ background: "#ffeb3b", padding: 10, borderRadius: 8, marginBottom: 20 }}>
-          🏁 <strong>Người chiến thắng:</strong> {winner.name} (${winner.total.toFixed(2)})
-        </div>
-      )}
-
-      {stocks.map((s) => {
-        const color = s.price > s.prevPrice ? "green" : s.price < s.prevPrice ? "red" : "gray";
-        return (
-          <div
-            key={s.code}
-            style={{
-              marginBottom: 30,
-              padding: 10,
-              border: "1px solid #ccc",
-              borderRadius: 8,
-            }}
-          >
-            <div>
-              <strong>{s.name}</strong> ({s.code}) —{" "}
-              <span style={{ color }}>{s.price.toFixed(2)}</span>
-            </div>
-            <div style={{ fontSize: 14, marginBottom: 10 }}>
-              <span>🟢 Trần: {s.ceiling.toFixed(2)} | 🔴 Sàn: {s.floor.toFixed(2)}</span>
-            </div>
-            <div style={{ marginBottom: 10 }}>
-              <button
-                onClick={() => handleBuy(s)}
-                style={{ padding: "6px 12px", marginRight: 10, backgroundColor: "green", color: "white", border: "none", borderRadius: 6 }}
-              >
-                Mua
-              </button>
-              <button
-                onClick={() => handleSell(s)}
-                style={{ padding: "6px 12px", backgroundColor: "red", color: "white", border: "none", borderRadius: 6 }}
-              >
-                Bán
-              </button>
-              <span style={{ marginLeft: 20 }}>
-                📦 Sở hữu: {portfolio[s.code] || 0} cp
-              </span>
-            </div>
-
-            <LineChart width={600} height={200} data={s.history}>
-              <CartesianGrid stroke="#ccc" strokeDasharray="5 5" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="price" stroke={color} dot={false} strokeWidth={2} />
-            </LineChart>
-
-            <BarChart width={600} height={100} data={s.history}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="volume" fill="#8884d8" />
-            </BarChart>
-          </div>
-        );
-      })}
     </div>
   );
 }
