@@ -14,7 +14,7 @@ import {
 import { newsList } from "./data";
 
 const socket = io(
-  process.env.REACT_APP_SOCKET_URL || "https://stock-game-server-mai.onrender.com",
+  process.env.REACT_APP_SOCKET_URL || "https://stock-game-server.onrender.com",
   { transports: ["websocket"] }
 );
 
