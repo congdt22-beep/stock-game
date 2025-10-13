@@ -1,3 +1,5 @@
+alert("✅ App.js loaded successfully!");
+
 import React, { useState, useEffect, useCallback } from "react";
 import io from "socket.io-client";
 import QRCode from "qrcode.react";
