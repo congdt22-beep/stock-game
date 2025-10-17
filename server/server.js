@@ -7,7 +7,13 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: {
+    origin: [
+      "http://localhost:3000",               // chạy local
+      "https://stock-game-p6ug.vercel.app",  // domain thật của bạn
+    ],
+    methods: ["GET", "POST"]
+  }
 });
 
 app.get("/", (req,res) => res.send("✅ Stock Game WebSocket server is running!"));
