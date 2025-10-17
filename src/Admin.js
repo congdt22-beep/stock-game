@@ -1,17 +1,25 @@
-// src/Admin.js
 import React from "react";
-import QRCode from "qrcode.react";
+import io from "socket.io-client";
 
-function Admin() {
-  const joinURL = "http://192.168.1.10:3000/join"; // ⚠️ thay bằng IP LAN thật của bạn
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "https://stock-game-server-mai.onrender.com";
+const socket = io(SOCKET_URL, { transports: ["websocket"] });
 
+export default function Admin(){
+  const start = () => {
+    socket.emit("startGame");
+    alert("Đã gửi lệnh bắt đầu");
+  };
+  const reset = () => {
+    if(!window.confirm("Reset game?")) return;
+    socket.emit("resetGame");
+  };
   return (
-    <div style={{ textAlign: "center", padding: 40 }}>
-      <h1>📱 Quét mã QR để tham gia Stock Game</h1>
-      <QRCode value={joinURL} size={256} />
-      <p style={{ marginTop: 10 }}>{joinURL}</p>
+    <div className="center">
+      <div className="card">
+        <h2>Admin – MTC</h2>
+        <button onClick={start}>Bắt đầu trò chơi</button>
+        <button onClick={reset} style={{marginLeft:10}}>Reset</button>
+      </div>
     </div>
   );
 }
-
-export default Admin;

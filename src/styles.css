@@ -1,0 +1,6 @@
+body { font-family: Inter, Roboto, Arial, sans-serif; background:#f6f8fb; color:#222; margin:0; }
+.center { display:flex; justify-content:center; align-items:center; min-height:100vh; }
+.card { background:white; padding:20px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.06); width:360px; text-align:center; }
+input { width:100%; padding:10px; margin-top:10px; border-radius:6px; border:1px solid #ddd; }
+button { padding:10px 14px; border-radius:8px; border:none; background:#2b7cff; color:white; cursor:pointer; }
+button:active { transform:translateY(1px); }
