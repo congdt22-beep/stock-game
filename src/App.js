@@ -46,7 +46,7 @@ function App() {
   const totalDays = 12;
   const [timer, setTimer] = useState(15);
   const [news, setNews] = useState(null);
-  const [usedNews, setUsedNews] = useState([]); // ✅ thêm để tránh trùng tin tức
+  const [usedNews, setUsedNews] = useState([]);
   const [timeTick, setTimeTick] = useState(1);
   const [balance, setBalance] = useState(10000);
   const [portfolio, setPortfolio] = useState({});
@@ -54,6 +54,10 @@ function App() {
   const [winner, setWinner] = useState(null);
 
   const loginUrl = `https://stock-game-iota.vercel.app/join`;
+
+  // ✅ NEW: State để xác định cổ phiếu nào đang được chọn
+  const [selectedStock, setSelectedStock] = useState(null);
+  const [quantities, setQuantities] = useState({}); // ✅ NEW: lưu giá trị nhập cho từng cổ phiếu
 
   // ======= SOCKET =======
   useEffect(() => {
@@ -106,10 +110,9 @@ function App() {
     setTimer(15);
     setTimeTick(1);
 
-    // ✅ Tin tức ảnh hưởng nhẹ đến thị trường (ngẫu nhiên +-3%)
     setStocks((prev) =>
       prev.map((s) => {
-        const effect = (Math.random() - 0.5) * 0.06; // ±3%
+        const effect = (Math.random() - 0.5) * 0.06;
         const influencedPrice = s.price * (1 + effect);
         return {
           ...s,
@@ -150,19 +153,16 @@ function App() {
     }
   }, [timer, gameStarted, day, totalDays, startNewDay, balance, portfolio, stocks, playerName]);
 
-  // ✅ Cập nhật giá theo cung cầu thực (số lượng mua/bán)
+  // ✅ Cập nhật giá theo cung cầu
   const updateStockPrice = (code, action, qty = 1) => {
     setStocks((prev) =>
       prev.map((s) => {
         if (s.code !== code) return s;
-
-        // tăng/giảm theo khối lượng (mỗi cổ phiếu tác động 0.2%)
         const changePercent = action === "up" ? 0.002 * qty : -0.002 * qty;
         const newPrice = Math.min(
           s.ceiling,
           Math.max(s.floor, s.price * (1 + changePercent))
         );
-
         return {
           ...s,
           prevPrice: s.price,
@@ -310,8 +310,12 @@ function App() {
     );
   }
 
+  // ======= MAIN GAME UI =======
   return (
-    <div style={{ padding: 20, fontFamily: "Arial, sans-serif", background: "#f8faff", minHeight: "100vh" }}>
+    <div
+      onClick={() => setSelectedStock(null)} // ✅ NEW: click ngoài cổ phiếu thì ẩn biểu đồ
+      style={{ padding: 20, fontFamily: "Arial, sans-serif", background: "#f8faff", minHeight: "100vh" }}
+    >
       <header
         style={{
           background: "linear-gradient(90deg, #2b7cff, #4b9bff)",
@@ -322,106 +326,156 @@ function App() {
         }}
       >
         <h2 style={{ margin: 0 }}>Sàn chứng khoán Mai Thành Công</h2>
-        <p style={{ margin: 0 }}>Ngày {day}/{totalDays} — Thời gian còn lại: {timer}s</p>
+        <p style={{ margin: 0 }}>
+          Ngày {day}/{totalDays} — Thời gian còn lại: {timer}s
+        </p>
       </header>
 
       <h2>👤 Người chơi: {playerName}</h2>
       <h3>💰 Số dư: ${balance.toFixed(2)}</h3>
 
       {news && (
-        <div style={{
-          background: "#eef5ff",
-          padding: 12,
-          marginBottom: 20,
-          borderLeft: "5px solid #2b7cff",
-          borderRadius: 6
-        }}>
+        <div
+          style={{
+            background: "#eef5ff",
+            padding: 12,
+            marginBottom: 20,
+            borderLeft: "5px solid #2b7cff",
+            borderRadius: 6,
+          }}
+        >
           <strong>📰 Tin tức hôm nay:</strong> {news.headline}
         </div>
       )}
 
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
-        gap: 20
-      }}>
-        {stocks.map((s) => (
-          <div key={s.code} style={{
-            background: "#fff",
-            borderRadius: 10,
-            padding: 16,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.08)"
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0 }}>{s.name} ({s.code})</h3>
-              <div style={{
-                fontWeight: 600,
-                color: s.price > s.prevPrice ? "green" : s.price < s.prevPrice ? "red" : "#333"
-              }}>
-                ${s.price.toFixed(2)}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))",
+          gap: 20,
+        }}
+      >
+        {stocks.map((s) => {
+          const qty = quantities[s.code] || 0;
+          const maxBuy = Math.floor(balance / s.price); // ✅ NEW
+          const totalCost = qty * s.price; // ✅ NEW
+
+          return (
+            <div
+              key={s.code}
+              onClick={(e) => {
+                e.stopPropagation(); // tránh trigger click ngoài
+                setSelectedStock((prev) => (prev === s.code ? null : s.code)); // ✅ toggle biểu đồ
+              }}
+              style={{
+                background: "#fff",
+                borderRadius: 10,
+                padding: 16,
+                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                cursor: "pointer",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <h3 style={{ margin: 0 }}>
+                  {s.name} ({s.code})
+                </h3>
+                <div
+                  style={{
+                    fontWeight: 600,
+                    color:
+                      s.price > s.prevPrice
+                        ? "green"
+                        : s.price < s.prevPrice
+                        ? "red"
+                        : "#333",
+                  }}
+                >
+                  ${s.price.toFixed(2)}
+                </div>
               </div>
-            </div>
-            <div style={{ fontSize: 13, color: "#777" }}>
-              Trần: {s.ceiling.toFixed(2)} | Sàn: {s.floor.toFixed(2)}
-            </div>
+              <div style={{ fontSize: 13, color: "#777" }}>
+                Trần: {s.ceiling.toFixed(2)} | Sàn: {s.floor.toFixed(2)}
+              </div>
 
-            <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="number"
-                min="1"
-                placeholder="Số lượng"
-                id={`qty-${s.code}`}
-                style={{
-                  width: 80,
-                  padding: 6,
-                  border: "1px solid #ccc",
-                  borderRadius: 6,
-                }}
-              />
-              <button
-                onClick={() => {
-                  const qty = Number(document.getElementById(`qty-${s.code}`).value || 0);
-                  if (qty > 0) handleBuy(s, qty);
-                }}
-                style={{ background: "#2b7cff", color: "white", borderRadius: 6 }}
-              >
-                Mua
-              </button>
-              <button
-                onClick={() => {
-                  const qty = Number(document.getElementById(`qty-${s.code}`).value || 0);
-                  if (qty > 0) handleSell(s, qty);
-                }}
-                style={{ background: "#e38cb7", color: "white", borderRadius: 6 }}
-              >
-                Bán
-              </button>
-              <span style={{ marginLeft: 20, fontSize: 13 }}>
-                Sở hữu: {portfolio[s.code] || 0} cp
-              </span>
-            </div>
+              <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="Số lượng"
+                  value={qty}
+                  onChange={(e) =>
+                    setQuantities((prev) => ({
+                      ...prev,
+                      [s.code]: Number(e.target.value),
+                    }))
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: 80,
+                    padding: 6,
+                    border: "1px solid #ccc",
+                    borderRadius: 6,
+                  }}
+                />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (qty > 0) handleBuy(s, qty);
+                  }}
+                  style={{ background: "#2b7cff", color: "white", borderRadius: 6 }}
+                >
+                  Mua
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (qty > 0) handleSell(s, qty);
+                  }}
+                  style={{ background: "#e38cb7", color: "white", borderRadius: 6 }}
+                >
+                  Bán
+                </button>
+                <span style={{ marginLeft: 10, fontSize: 13 }}>
+                  Sở hữu: {portfolio[s.code] || 0} cp
+                </span>
+              </div>
 
-            <LineChart width={380} height={140} data={s.history} style={{ marginTop: 10 }}>
-              <CartesianGrid stroke="#eee" />
-              <XAxis dataKey="time" hide />
-              <YAxis domain={["dataMin", "dataMax"]} />
-              <Tooltip />
-              <Line dataKey="price" stroke="#2b7cff" dot={false} />
-            </LineChart>
-          </div>
-        ))}
+              {/* ✅ NEW: hiển thị tổng tiền + số lượng tối đa */}
+              {qty > 0 && (
+                <div style={{ fontSize: 13, color: "#444", marginTop: 4 }}>
+                  💵 Tổng tiền: ${(totalCost || 0).toFixed(2)} — Mua tối đa: {maxBuy} cp
+                </div>
+              )}
+
+              {/* ✅ NEW: biểu đồ chỉ hiện khi cổ phiếu được chọn */}
+              {selectedStock === s.code && (
+                <LineChart width={380} height={140} data={s.history} style={{ marginTop: 10 }}>
+                  <CartesianGrid stroke="#eee" />
+                  <XAxis dataKey="time" hide />
+                  <YAxis domain={["dataMin", "dataMax"]} />
+                  <Tooltip />
+                  <Line dataKey="price" stroke="#2b7cff" dot={false} />
+                </LineChart>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      <div style={{
-        marginTop: 40,
-        background: "#f9f9f9",
-        padding: 12,
-        borderRadius: 8
-      }}>
+      <div
+        style={{
+          marginTop: 40,
+          background: "#f9f9f9",
+          padding: 12,
+          borderRadius: 8,
+        }}
+      >
         <h3>🏆 Top 5 người chơi dẫn đầu</h3>
         <ol>
           {leaderboard.map((p, idx) => (
-            <li key={idx}>{p.name} — <strong>${p.total.toFixed(2)}</strong></li>
+            <li key={idx}>
+              {p.name} — <strong>${p.total.toFixed(2)}</strong>
+            </li>
           ))}
         </ol>
       </div>
