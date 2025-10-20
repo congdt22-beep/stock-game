@@ -14,7 +14,8 @@ import { newsList } from "./data";
 console.log("✅ App.js loaded successfully!");
 
 const SOCKET_URL =
-  process.env.REACT_APP_SOCKET_URL || "https://stock-game-server-cong.onrender.com";
+  process.env.REACT_APP_SOCKET_URL ||
+  "https://stock-game-server-cong.onrender.com";
 console.log("🌐 Using socket server:", SOCKET_URL);
 const socket = io(SOCKET_URL, { transports: ["websocket"] });
 
@@ -53,7 +54,8 @@ function App() {
   const [leaderboard, setLeaderboard] = useState([]);
   const [winner, setWinner] = useState(null);
 
-  const loginUrl = `https://stock-game-iota.vercel.app/join`;
+  // ✅ Sửa QR: trỏ đúng app hiện tại
+  const loginUrl = window.location.origin;
 
   const [selectedStock, setSelectedStock] = useState(null);
   const [quantities, setQuantities] = useState({});
@@ -68,12 +70,20 @@ function App() {
     socket.on("init", (data) => {
       setPlayers(data.players || []);
       setGameStarted(data.gameStarted || false);
+      setStocks(data.stocks || initialStocks);
+      setIsAdmin(socket.id === data.adminId); // ✅ admin chính xác
     });
 
-    socket.on("playersUpdate", (updated) => setPlayers(updated.players));
-    socket.on("stocksUpdate", (updatedStocks) => setStocks(updatedStocks)); // ✅ NEW realtime update
+    socket.on("playersUpdate", (updated) => {
+      setPlayers(updated.players || []);
+      setIsAdmin(socket.id === updated.adminId); // ✅ cập nhật admin liên tục
+    });
+
+    socket.on("stocksUpdate", (updatedStocks) => setStocks(updatedStocks));
     socket.on("leaderboard", (data) => setLeaderboard(data || []));
     socket.on("gameStarted", () => setGameStarted(true));
+    socket.on("joinError", (msg) => alert(msg));
+
     socket.on("gameReset", () => {
       setGameStarted(false);
       setPlayers([]);
@@ -84,7 +94,6 @@ function App() {
       setPortfolio({});
       setUsedNews([]);
     });
-    socket.on("joinError", (msg) => alert(msg));
 
     return () => socket.off();
   }, []);
@@ -93,7 +102,6 @@ function App() {
     if (!playerName.trim()) return alert("❌ Vui lòng nhập tên!");
     socket.emit("join", playerName);
     setLoggedIn(true);
-    if (players.length === 0) setIsAdmin(true);
   };
 
   const startGame = () => socket.emit("startGame");
@@ -165,37 +173,19 @@ function App() {
     playerName,
   ]);
 
-  // ======= Mua / Bán qua socket =======
+  // ======= Mua / Bán =======
   const handleBuy = (stock, qty = 1) => {
     if (qty <= 0) return alert("❌ Số lượng không hợp lệ!");
-    socket.emit("buy", { code: stock.code, qty }); // ✅ gửi server
+    socket.emit("buy", { code: stock.code, qty });
   };
 
   const handleSell = (stock, qty = 1) => {
     if (qty <= 0) return alert("❌ Số lượng không hợp lệ!");
-    socket.emit("sell", { code: stock.code, qty }); // ✅ gửi server
+    socket.emit("sell", { code: stock.code, qty });
   };
 
-  // ======= Bảng xếp hạng =======
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setLeaderboard(() => {
-        const newData = [...players].map((p) => {
-          const isMe = p.name === playerName;
-          const totalValue = isMe
-            ? Object.keys(portfolio).reduce((sum, code) => {
-                const stock = stocks.find((s) => s.code === code);
-                return sum + (stock ? stock.price * portfolio[code] : 0);
-              }, balance)
-            : p.balance || 100000;
-          return { name: p.name, total: totalValue };
-        });
-        newData.sort((a, b) => b.total - a.total);
-        return newData.slice(0, 5);
-      });
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [players, stocks, portfolio, balance, playerName]);
+  // ✅ Giữ leaderboard từ server, bỏ tính cục bộ
+  // (đã có socket.on("leaderboard"))
 
   // ======= UI =======
   if (!loggedIn) {
@@ -292,7 +282,7 @@ function App() {
   // ======= MAIN GAME UI =======
   return (
     <div
-      onClick={() => setSelectedStock(null)} // ✅ NEW: click ngoài cổ phiếu thì ẩn biểu đồ
+      onClick={() => setSelectedStock(null)}
       style={{ padding: 20, fontFamily: "Arial, sans-serif", background: "#f8faff", minHeight: "100vh" }}
     >
       <header
@@ -336,15 +326,15 @@ function App() {
       >
         {stocks.map((s) => {
           const qty = quantities[s.code] || 0;
-          const maxBuy = Math.floor(balance / s.price); // ✅ NEW
-          const totalCost = qty * s.price; // ✅ NEW
+          const maxBuy = Math.floor(balance / s.price);
+          const totalCost = qty * s.price;
 
           return (
             <div
               key={s.code}
               onClick={(e) => {
-                e.stopPropagation(); // tránh trigger click ngoài
-                setSelectedStock((prev) => (prev === s.code ? null : s.code)); // ✅ toggle biểu đồ
+                e.stopPropagation();
+                setSelectedStock((prev) => (prev === s.code ? null : s.code));
               }}
               style={{
                 background: "#fff",
@@ -419,14 +409,12 @@ function App() {
                 </span>
               </div>
 
-              {/* ✅ NEW: hiển thị tổng tiền + số lượng tối đa */}
               {qty > 0 && (
                 <div style={{ fontSize: 13, color: "#444", marginTop: 4 }}>
                   💵 Tổng tiền: ${(totalCost || 0).toFixed(2)} — Mua tối đa: {maxBuy} cp
                 </div>
               )}
 
-              {/* ✅ NEW: biểu đồ chỉ hiện khi cổ phiếu được chọn */}
               {selectedStock === s.code && (
                 <LineChart width={380} height={140} data={s.history} style={{ marginTop: 10 }}>
                   <CartesianGrid stroke="#eee" />
