@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import io from "socket.io-client";
 import QRCode from "qrcode.react";
@@ -56,9 +55,8 @@ function App() {
 
   const loginUrl = `https://stock-game-iota.vercel.app/join`;
 
-  // ✅ NEW: State để xác định cổ phiếu nào đang được chọn
   const [selectedStock, setSelectedStock] = useState(null);
-  const [quantities, setQuantities] = useState({}); // ✅ NEW: lưu giá trị nhập cho từng cổ phiếu
+  const [quantities, setQuantities] = useState({});
 
   // ======= SOCKET =======
   useEffect(() => {
@@ -71,10 +69,10 @@ function App() {
       setPlayers(data.players || []);
       setGameStarted(data.gameStarted || false);
     });
-    socket.on("playersUpdate", (updated) => setPlayers(updated));
-    socket.on("leaderboard", (data) => {
-  setLeaderboard(data || []);
-});
+
+    socket.on("playersUpdate", (updated) => setPlayers(updated.players));
+    socket.on("stocksUpdate", (updatedStocks) => setStocks(updatedStocks)); // ✅ NEW realtime update
+    socket.on("leaderboard", (data) => setLeaderboard(data || []));
     socket.on("gameStarted", () => setGameStarted(true));
     socket.on("gameReset", () => {
       setGameStarted(false);
@@ -101,13 +99,13 @@ function App() {
   const startGame = () => socket.emit("startGame");
   const resetGame = () => socket.emit("resetGame");
 
-  // ✅ Tin tức mỗi ngày không trùng + có ảnh hưởng đến giá
   const startNewDay = useCallback(() => {
     const availableNews = newsList.filter(
       (n) => !usedNews.includes(n.headline)
     );
     const randomPool = availableNews.length > 0 ? availableNews : newsList;
-    const randomNews = randomPool[Math.floor(Math.random() * randomPool.length)];
+    const randomNews =
+      randomPool[Math.floor(Math.random() * randomPool.length)];
 
     setNews(randomNews);
     setUsedNews((prev) => [...prev, randomNews.headline]);
@@ -155,50 +153,27 @@ function App() {
         return () => clearTimeout(countdown);
       }
     }
-  }, [timer, gameStarted, day, totalDays, startNewDay, balance, portfolio, stocks, playerName]);
+  }, [
+    timer,
+    gameStarted,
+    day,
+    totalDays,
+    startNewDay,
+    balance,
+    portfolio,
+    stocks,
+    playerName,
+  ]);
 
-  // ✅ Cập nhật giá theo cung cầu
-  const updateStockPrice = (code, action, qty = 1) => {
-    setStocks((prev) =>
-      prev.map((s) => {
-        if (s.code !== code) return s;
-        const changePercent = action === "up" ? 0.002 * qty : -0.002 * qty;
-        const newPrice = Math.min(
-          s.ceiling,
-          Math.max(s.floor, s.price * (1 + changePercent))
-        );
-        return {
-          ...s,
-          prevPrice: s.price,
-          price: newPrice,
-          history: [
-            ...s.history,
-            { time: timeTick, price: newPrice, volume: qty },
-          ],
-        };
-      })
-    );
-  };
-
+  // ======= Mua / Bán qua socket =======
   const handleBuy = (stock, qty = 1) => {
-    if (balance < stock.price * qty) return alert("❌ Không đủ tiền!");
-    setBalance((b) => Math.max(0, b - stock.price * qty));
-    setPortfolio((p) => ({
-      ...p,
-      [stock.code]: (p[stock.code] || 0) + qty,
-    }));
-    updateStockPrice(stock.code, "up", qty);
+    if (qty <= 0) return alert("❌ Số lượng không hợp lệ!");
+    socket.emit("buy", { code: stock.code, qty }); // ✅ gửi server
   };
 
   const handleSell = (stock, qty = 1) => {
-    if (!portfolio[stock.code] || portfolio[stock.code] < qty)
-      return alert("❌ Bạn không có đủ cổ phiếu!");
-    setBalance((b) => Math.max(0, b + stock.price * qty));
-    setPortfolio((p) => ({
-      ...p,
-      [stock.code]: p[stock.code] - qty,
-    }));
-    updateStockPrice(stock.code, "down", qty);
+    if (qty <= 0) return alert("❌ Số lượng không hợp lệ!");
+    socket.emit("sell", { code: stock.code, qty }); // ✅ gửi server
   };
 
   // ======= Bảng xếp hạng =======
