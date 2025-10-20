@@ -72,6 +72,9 @@ function App() {
       setGameStarted(data.gameStarted || false);
     });
     socket.on("playersUpdate", (updated) => setPlayers(updated));
+    socket.on("leaderboard", (data) => {
+  setLeaderboard(data || []);
+});
     socket.on("gameStarted", () => setGameStarted(true));
     socket.on("gameReset", () => {
       setGameStarted(false);
