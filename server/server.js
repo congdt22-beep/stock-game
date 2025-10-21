@@ -1,21 +1,24 @@
-// server/server.js
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 
 const app = express();
-app.use(cors({ origin: "*" })); // ✅ cho phép tất cả domain
+app.use(cors({ origin: "*" }));
 
 app.get("/", (req, res) => {
   res.send("✅ Stock Game WebSocket server is running!");
 });
 
 const server = http.createServer(app);
-
 const io = new Server(server, {
   cors: {
-    origin: "*", // ✅ rất quan trọng
+    origin: [
+      "*",
+      "http://localhost:3000",
+      "https://stock-game-p6ug.vercel.app",
+      "https://stock-game-p6ug-git-main-congmais-projects.vercel.app",
+    ],
     methods: ["GET", "POST"],
   },
 });
@@ -24,7 +27,6 @@ const io = new Server(server, {
 let players = [];
 let gameStarted = false;
 let adminId = null;
-
 let stocks = [
   { code: "HPG", name: "Công ty Thép", price: 100 },
   { code: "MSN", name: "Công ty Nhà Đất", price: 120 },
@@ -45,7 +47,10 @@ io.on("connection", (socket) => {
       return;
     }
 
-    if (!adminId) adminId = socket.id;
+    if (!adminId) {
+      adminId = socket.id;
+      console.log("👑 New admin assigned:", name);
+    }
 
     const player = { id: socket.id, name, balance: 10000, portfolio: {} };
     players.push(player);
@@ -115,6 +120,7 @@ io.on("connection", (socket) => {
   });
 });
 
+// ======= LEADERBOARD =======
 setInterval(() => {
   const leaderboard = players
     .map((p) => {

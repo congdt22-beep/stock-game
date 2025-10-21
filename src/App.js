@@ -75,9 +75,12 @@ function App() {
     });
 
     socket.on("playersUpdate", (updated) => {
-      setPlayers(updated.players || []);
-      setIsAdmin(socket.id === updated.adminId); // ✅ cập nhật admin liên tục
-    });
+  setPlayers(updated.players || []);
+  // ✅ Nếu adminId bị null (vừa khởi động), thử cập nhật lại sau 300ms
+  setTimeout(() => {
+    setIsAdmin(socket.id === updated.adminId);
+  }, 300);
+});
 
     socket.on("stocksUpdate", (updatedStocks) => setStocks(updatedStocks));
     socket.on("leaderboard", (data) => setLeaderboard(data || []));
